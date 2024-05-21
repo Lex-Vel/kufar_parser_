@@ -1,8 +1,9 @@
 import re
-
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+
+from models import Notebook
 
 
 class KufarParser:
@@ -35,7 +36,8 @@ class KufarParser:
 
         return links
 
-    def get_notebook_data(self, soup: BeautifulSoup):
+    def get_notebook_data(self, url: str, soup: BeautifulSoup):
+        notebook = Notebook(url)
         title = soup.find('h1', class_='styles_brief_wrapper__title__Ksuxa')
         if title:
             title = title.text
@@ -55,14 +57,38 @@ class KufarParser:
                                                                                    class_='styles_parameter_wrapper__L7UfK')
         for param in params:
             key = param.find('div', class_='styles_parameter_label__i_OkS').text
+            value = param.find('div', class_='styles_parameter_value__BkYDy').text
             if key == 'Производитель':
+                notebook.manufacturer = value
+            elif key == 'Диагональ экрана':
+                notebook.diagonal = value
+            elif key == 'Разрешение экрана':
+                notebook.screen_resolution = value
+            elif key == 'Операционная система':
+                notebook.os = value
+            elif key == 'Процессор':
+                notebook.processor = value
+            elif key == 'Оперативная память':
+                notebook.op_mem = value
+            elif key == 'Тип видеокарты':
+                notebook.type_video_card = value
+            elif key == 'Видеокарта':
+                notebook.video_card = value
+            elif key == 'Тип накопителя':
+                notebook.type_drive = value
+            elif key == 'Ёмкость накопителя':
+                notebook.capacity_drive = value
+            elif key == 'Время автономной работы':
+                notebook.auto_work_time = value
+            elif key == 'Состояние':
+                notebook.state = value
 
     def run(self):
         url = 'https://www.kufar.by/l/r~minsk/noutbuki'
         links = self.get_notebook_list(self.get_soup(url))
         for link in tqdm(links):
             soup = self.get_soup(link)
-            notebook = self.get_notebook_data(soup)
+            notebook = self.get_notebook_data(link, soup)
 
 
 parse = KufarParser()
