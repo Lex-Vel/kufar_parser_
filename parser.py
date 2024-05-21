@@ -2,6 +2,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+from tenacity import retry, wait_fixed
 
 from models import Notebook
 
@@ -13,13 +14,15 @@ class KufarParser:
     }
 
     @classmethod
-    def get_soup(cls, url: str) -> BeautifulSoup | None:
+    @retry(wait=wait_fixed(0.2))
+    def get_soup(cls, url: str) -> BeautifulSoup:
         response = requests.get(url, headers=cls.HEADERS)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'lxml')
-            return soup
-        else:
-            print(f'{response.status_code} | {url}')
+        print(f'{response.status_code} | {url}')
+        if response.status_code != 200:
+            raise ValueError(f'response status not 200, {response.status_code}')
+
+        soup = BeautifulSoup(response.text, 'lxml')
+        return soup
 
     @staticmethod
     def __get_notebook_list(soup: BeautifulSoup) -> list:
@@ -50,7 +53,10 @@ class KufarParser:
             price = soup.find('div', class_='styles_discountPrice__WuQiu')
 
         price = price.text.replace(' ', '').replace('р.', '')
-        price = float(price)
+        try:
+            price = float(price)
+        except Exception as e:
+            print(url)
         notebook.price = price
 
         description = soup.find('div', itemprop="description")
