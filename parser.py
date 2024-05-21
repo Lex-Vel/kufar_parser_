@@ -21,7 +21,8 @@ class KufarParser:
         else:
             print(f'{response.status_code} | {url}')
 
-    def get_notebook_list(self, soup: BeautifulSoup) -> list:
+    @staticmethod
+    def __get_notebook_list(soup: BeautifulSoup) -> list:
         links = []
         sections = soup.find_all('section')
         for section in sections:
@@ -36,11 +37,13 @@ class KufarParser:
 
         return links
 
-    def get_notebook_data(self, url: str, soup: BeautifulSoup):
+    @staticmethod
+    def __get_notebook_data(url: str, soup: BeautifulSoup) -> Notebook:
         notebook = Notebook(url)
         title = soup.find('h1', class_='styles_brief_wrapper__title__Ksuxa')
         if title:
             title = title.text
+            notebook.title = title
 
         price = soup.find('span', class_='styles_main__eFbJH')
         if not price:
@@ -48,13 +51,15 @@ class KufarParser:
 
         price = price.text.replace(' ', '').replace('р.', '')
         price = float(price)
+        notebook.price = price
 
         description = soup.find('div', itemprop="description")
         if description:
             description = description.text
+            notebook.description = description
 
-        params = soup.find('div', class_="styles_parameter_block__6HwcY").find_all('div',
-                                                                                   class_='styles_parameter_wrapper__L7UfK')
+        params = soup.find_all('div', class_='styles_parameter_wrapper__L7UfK')
+
         for param in params:
             key = param.find('div', class_='styles_parameter_label__i_OkS').text
             value = param.find('div', class_='styles_parameter_value__BkYDy').text
@@ -83,12 +88,19 @@ class KufarParser:
             elif key == 'Состояние':
                 notebook.state = value
 
+        images = soup.find_all('img', class_='styles_slide__image__AV4nX styles_slide__image__vertical__okVaq')
+        images = [i['src'] for i in images]
+        notebook.images = images
+
+        return notebook
+
     def run(self):
         url = 'https://www.kufar.by/l/r~minsk/noutbuki'
-        links = self.get_notebook_list(self.get_soup(url))
+        links = self.__get_notebook_list(self.get_soup(url))
         for link in tqdm(links):
             soup = self.get_soup(link)
-            notebook = self.get_notebook_data(link, soup)
+            notebook = self.__get_notebook_data(link, soup)
+            print(notebook)
 
 
 parse = KufarParser()
