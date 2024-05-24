@@ -1,10 +1,54 @@
+import json
 import re
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from tenacity import retry, wait_fixed
+from environs import Env
 
+from db_client import DBPostgres
 from models import Notebook
+
+env = Env()
+env.read_env()
+
+DBNAME = env('DBNAME')
+DBUSER = env('DBUSER')
+DBPASSWORD = env('DBPASSWORD')
+DBHOST = env('DBHOST')
+DBPORT = env('DBPORT')
+
+class KufarDB(DBPostgres):
+    def create_table(self):
+        self.execute_query(
+            """create table if not exists notebook(
+    id serial primary key ,
+    url varchar(160) unique ,
+    title varchar(500),
+    price numeric(10, 2),
+    description text,
+    manufacturer varchar(100),
+    diagonal varchar(100),
+    screen_resolution varchar(100),
+    os varchar(100),
+    processor varchar(100),
+    op_mem varchar(100),
+    type_video_card varchar(100),
+    video_card  varchar(100),
+    type_drive varchar(100),
+    capacity_drive varchar(100),
+    auto_work_time varchar(100),
+    state varchar(100)
+);
+create table if not exists image(
+    id serial primary key ,
+    image_url varchar (160) unique ,
+    notebook_id integer references notebook(id) on DELETE cascade 
+);"""
+        )
+
+    def insert_data(self):
+        pass
 
 
 class KufarParser:
@@ -12,6 +56,10 @@ class KufarParser:
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': '*/*'
     }
+
+    BD = KufarDB(
+
+    )
 
     @classmethod
     @retry(wait=wait_fixed(0.2))
@@ -25,7 +73,7 @@ class KufarParser:
         return soup
 
     @staticmethod
-    def __get_notebook_list(soup: BeautifulSoup) -> list:
+    def __get_notebook_list(soup: BeautifulSoup) -> tuple:
         links = []
         sections = soup.find_all('section')
         for section in sections:
@@ -38,7 +86,16 @@ class KufarParser:
             if price.isdigit():
                 links.append(link)
 
-        return links
+        json_data = soup.find('script', id='__NEXT_DATA__').text
+        json_data = json.loads(json_data)
+        tokens = json_data['props']['initialState']['listing']['pagination']
+        next_page = list(filter(lambda el: el['label'] == 'next', tokens))[0]
+        if next_page:
+            token = next_page['token']
+        else:
+            token = None
+
+        return links, token
 
     @staticmethod
     def __get_notebook_data(url: str, soup: BeautifulSoup) -> Notebook:
@@ -102,12 +159,24 @@ class KufarParser:
 
     def run(self):
         url = 'https://www.kufar.by/l/r~minsk/noutbuki'
-        links = self.__get_notebook_list(self.get_soup(url))
-        for link in tqdm(links):
-            soup = self.get_soup(link)
-            notebook = self.__get_notebook_data(link, soup)
-            print(notebook)
+        flag = True
+        while flag:
+
+            links_and_token = self.__get_notebook_list(self.get_soup(url))
+            links = links_and_token[0]
+            token = links_and_token[1]
+            notebooks = []
+            for link in tqdm(links):
+                soup = self.get_soup(link)
+                notebook = self.__get_notebook_data(link, soup)
+                notebooks.append(notebook)
+                print(notebook)
+            if token:
+                url = f'https://www.kufar.by/l/r~minsk/noutbuki?cursor={token}'
+            else:
+                flag = False
 
 
-parse = KufarParser()
-parse.run()
+if __name__ == '__main__':
+    parse = KufarParser()
+    parse.run()
