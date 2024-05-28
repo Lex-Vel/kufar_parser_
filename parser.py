@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 from tenacity import retry, wait_fixed
 from environs import Env
+from dataclasses import astuple
 
 from db_client import DBPostgres
 from models import Notebook
@@ -47,8 +48,17 @@ create table if not exists image(
 );"""
         )
 
-    def insert_data(self):
-        pass
+    def insert_data(self, data):
+        data = [astuple(i) for i in data]
+        self.execute_query("""WITH note_id as (
+        INSERT INTO notebook(url, title, price, description, manufacturer, diagonal, screen_resolution, os, processor, 
+        op_mem, type_video_card, video_card, type_drive, capacity_drive, auto_work_time, state) 
+        VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
+        ON CONFLICT (url) DO UPDATE SET price=excluded.price RETURNING id)
+        INSERT INTO image(image_url, notebook_id) VALUES (
+        unnest(COALESCE(%s, ARRAY[]::text[])), (SELECT id FROM note_id)
+        ) ON CONFLICT (image_url) DO NOTHING 
+        """, data)
 
 
 class KufarParser:
@@ -175,7 +185,9 @@ class KufarParser:
                 soup = self.get_soup(link)
                 notebook = self.__get_notebook_data(link, soup)
                 notebooks.append(notebook)
-                print(notebook)
+
+            self.DB.insert_data(notebooks)
+                # print(notebook)
             if token:
                 url = f'https://www.kufar.by/l/r~minsk/noutbuki?cursor={token}'
             else:
