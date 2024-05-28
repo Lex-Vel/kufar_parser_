@@ -191,7 +191,7 @@ class KufarParser:
                 notebooks.append(notebook)
 
             self.DB.insert_data(notebooks)
-                # print(notebook)
+
             if token:
                 url = f'https://www.kufar.by/l/r~minsk/noutbuki?cursor={token}'
             else:
