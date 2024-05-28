@@ -57,8 +57,12 @@ class KufarParser:
         'Accept': '*/*'
     }
 
-    BD = KufarDB(
-
+    DB = KufarDB(
+        dbname=DBNAME,
+        user=DBUSER,
+        password=DBPASSWORD,
+        host=DBHOST,
+        port=DBPORT
     )
 
     @classmethod
@@ -158,6 +162,7 @@ class KufarParser:
         return notebook
 
     def run(self):
+        self.DB.create_table()
         url = 'https://www.kufar.by/l/r~minsk/noutbuki'
         flag = True
         while flag:
