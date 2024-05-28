@@ -77,9 +77,11 @@ class KufarParser:
 
     @classmethod
     @retry(wait=wait_fixed(0.2))
-    def get_soup(cls, url: str) -> BeautifulSoup:
+    def get_soup(cls, url: str) -> BeautifulSoup | None:
         response = requests.get(url, headers=cls.HEADERS)
         print(f'{response.status_code} | {url}')
+        if response.status_code == 404:
+            return
         if response.status_code != 200:
             raise ValueError(f'response status not 200, {response.status_code}')
 
@@ -183,6 +185,8 @@ class KufarParser:
             notebooks = []
             for link in tqdm(links):
                 soup = self.get_soup(link)
+                if not soup:
+                    continue
                 notebook = self.__get_notebook_data(link, soup)
                 notebooks.append(notebook)
 
