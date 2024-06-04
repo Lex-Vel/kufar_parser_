@@ -51,11 +51,11 @@ create table if not exists image(
     def insert_data(self, data):
         data = [astuple(i) for i in data]
         self.execute_query("""WITH note_id as (
-        INSERT INTO notebook(url, title, price, description, manufacturer, diagonal, screen_resolution, os, processor, 
+        INSERT INTO core_app_notebook(url, title, price, description, manufacturer, diagonal, screen_resolution, os, processor, 
         op_mem, type_video_card, video_card, type_drive, capacity_drive, auto_work_time, state) 
         VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
         ON CONFLICT (url) DO UPDATE SET price=excluded.price RETURNING id)
-        INSERT INTO image(image_url, notebook_id) VALUES (
+        INSERT INTO core_app_image(image_url, notebook_id) VALUES (
         unnest(COALESCE(%s, ARRAY[]::text[])), (SELECT id FROM note_id)
         ) ON CONFLICT (image_url) DO NOTHING 
         """, data)
@@ -121,15 +121,12 @@ class KufarParser:
             title = title.text
             notebook.title = title
 
-        price = soup.find('span', class_='styles_main__eFbJH')
+        price = soup.find('span', class_='styles_main__eFbJH').find('div', class_='styles_discountPrice__WuQiu')
         if not price:
-            price = soup.find('div', class_='styles_discountPrice__WuQiu')
+            price = soup.find('span', class_='styles_main__eFbJH') #'styles_discountPrice__WuQiu'
 
         price = price.text.replace(' ', '').replace('р.', '')
-        try:
-            price = float(price)
-        except Exception as e:
-            print(url)
+        price = float(price)
         notebook.price = price
 
         description = soup.find('div', itemprop="description")
@@ -174,7 +171,6 @@ class KufarParser:
         return notebook
 
     def run(self):
-        self.DB.create_table()
         url = 'https://www.kufar.by/l/r~minsk/noutbuki'
         flag = True
         while flag:
