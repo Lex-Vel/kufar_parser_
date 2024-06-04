@@ -123,7 +123,7 @@ class KufarParser:
 
         price = soup.find('span', class_='styles_main__eFbJH').find('div', class_='styles_discountPrice__WuQiu')
         if not price:
-            price = soup.find('span', class_='styles_main__eFbJH') #'styles_discountPrice__WuQiu'
+            price = soup.find('span', class_='styles_main__eFbJH')
 
         price = price.text.replace(' ', '').replace('р.', '')
         price = float(price)
